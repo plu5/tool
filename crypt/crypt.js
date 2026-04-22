@@ -5,6 +5,7 @@ const domoutput = document.getElementById("output");
 const inputs = [domkey, dominput, domoutput];
 const clearbtn = document.getElementById("clear");
 const encryptbtn = document.getElementById("encrypt");
+const decryptbtn = document.getElementById("decrypt");
 
 const clear = () => {
   for (let inp of inputs) {
@@ -13,10 +14,11 @@ const clear = () => {
 };
 
 const encode = (text) => new TextEncoder().encode(text);
+const decode = (text) => new TextDecoder().decode(text);
 
 const genCounter = () => window.crypto.getRandomValues(new Uint8Array(16));
 
-const genKey_ = async () => window.crypto.subtle.generateKey(
+const genKey_ = () => window.crypto.subtle.generateKey(
   {name: "AES-CTR", length: 256}, true, ["encrypt", "decrypt"]);
 
 const genKey = async () => {
@@ -42,18 +44,24 @@ const getKey = async () => {
   return key;
 };
 
-const encrypt_ = (key, text) => window.crypto.subtle.encrypt(
-  {name: "AES-CTR", counter: genCounter(), length: 64}, key, text);
+const encryptBuffer = (key, buffer) => window.crypto.subtle.encrypt(
+  {name: "AES-CTR", counter: genCounter(), length: 64}, key, buffer);
+const decryptBuffer = (key, buffer) => window.crypto.subtle.decrypt(
+  {name: "AES-CTR", counter: genCounter(), length: 64}, key, buffer);
 
 const arrayBufferToBase64 = (buffer) => btoa(
   String.fromCharCode(...new Uint8Array(buffer)));
 
 const encrypt = async () => {
-  let r = encode(dominput.value);
-  getKey().then((key) => encrypt_(key, r)).then((a) => {
-    domoutput.value = arrayBufferToBase64(a);
-  });
+  domoutput.value = arrayBufferToBase64(
+    await encryptBuffer(await getKey(), encode(dominput.value)));
 };
 
-encryptbtn.addEventListener("click", encrypt);
+const decrypt = async () => {
+  domoutput.value = decode(
+    await decryptBuffer(await getKey(), encode(dominput.value)));
+};
+
 clearbtn.addEventListener("click", clear);
+encryptbtn.addEventListener("click", encrypt);
+decryptbtn.addEventListener("click", decrypt);
