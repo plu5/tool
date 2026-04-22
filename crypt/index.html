@@ -3,9 +3,15 @@
   <link rel="stylesheet" href="crypt.css">
 </head>
 <body>
-  <textarea id="input"></textarea>
+  <textarea
+    id="key"
+    placeholder="Provide your own key or leave blank to generate one.">
+  </textarea>
+  <br/>
+  <textarea id="input" placeholder="input"></textarea>
   <button id="encrypt">Encrypt</button>
-  <textarea id="output"></textarea>
+  <textarea id="output" placeholder="output"></textarea>
+  <pre id="err"></pre>
   <script src="crypt.js"></script>
 </body>
 </html>
