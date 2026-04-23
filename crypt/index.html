@@ -3,17 +3,26 @@
   <link rel="stylesheet" href="crypt.css">
 </head>
 <body>
+  <pre id="err"></pre>
   <button id="clear">Clear</button>
   <textarea
     id="key"
     placeholder="Provide your own key or leave blank to generate one.">
   </textarea>
   <br/>
-  <textarea id="input" placeholder="input"></textarea>
+  <hr/>
+  <textarea id="in" placeholder="Input (cleartext)"></textarea>
   <button id="encrypt">Encrypt</button>
+  <textarea id="out" placeholder="Output (ciphertext, base64)"></textarea>
+  <textarea id="iv" placeholder="IV (base64)"></textarea>
+  <br/>
+  <hr/>
+  <textarea id="in2" placeholder="Input (cyphertext, base64)"></textarea>
+  <button id="transfer">Transfer down the values from Encrypt output</button>
+  <br/>
+  <textarea id="iv2" placeholder="IV (base64)"></textarea>
   <button id="decrypt">Decrypt</button>
-  <textarea id="output" placeholder="output"></textarea>
-  <pre id="err"></pre>
+  <textarea id="out2" placeholder="Output (cleartext)"></textarea>
   <script src="crypt.js"></script>
 </body>
 </html>
