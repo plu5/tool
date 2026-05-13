@@ -1,4 +1,4 @@
-body, textarea, button {
+* {
   color: white;
   background-color: black;
 }
