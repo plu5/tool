@@ -67,29 +67,47 @@ const getKey = async (alg) => {
   return key;
 };
 
-const encryptBuffer = (key, iv, buffer) => window.crypto.subtle.encrypt(
-  {name: "AES-CTR", counter: iv, length: 64}, key, buffer);
-const decryptBuffer = (key, iv, buffer) => window.crypto.subtle.decrypt(
-  {name: "AES-CTR", counter: iv, length: 64}, key, buffer);
-
 const arrayBufferToBase64 = (buffer) => btoa(
   String.fromCharCode(...new Uint8Array(buffer)));
 const base64ToArrayBuffer = (base64) => Uint8Array.from(
   atob(base64), c => c.charCodeAt(0));
 
+const getParams = (alg, iv) => {
+  let params = {name: algselect.value};
+  if (params.name == "AES-CTR") {
+    params.counter = iv;
+    params.length = 64;
+  } else if (params.name == "AES-GCM") {
+    params.iv = iv;
+  }
+  return params;
+}
+
 const encrypt = async () => {
+  const alg = algselect.value;
   const iv = genCounter();
   domencrypt.iv.value = arrayBufferToBase64(iv);
-  domencrypt.out.value = arrayBufferToBase64(
-    await encryptBuffer(
-      await getKey("AES-CTR"), iv, encode(domencrypt.in.value)));
+  try {
+    domencrypt.out.value = arrayBufferToBase64(
+      await window.crypto.subtle.encrypt(
+        getParams(alg, iv), await getKey(alg),
+        encode(domencrypt.in.value)));
+  } catch (e) {
+    domerr.textContent = `Unable to encrypt. ${e}`;
+  }
 };
 
 const decrypt = async () => {
+  const alg = algselect.value;
   const iv = base64ToArrayBuffer(domdecrypt.iv.value);
-  domdecrypt.out.value = decode(
-    await decryptBuffer(
-      await getKey("AES-CTR"), iv, base64ToArrayBuffer(domdecrypt.in.value)));
+  try {
+    domdecrypt.out.value = decode(
+      await window.crypto.subtle.decrypt(
+        getParams(alg, iv), await getKey(alg),
+        base64ToArrayBuffer(domdecrypt.in.value)));
+  } catch (e) {
+    domerr.textContent = `Unable to decrypt. ${e}`;
+  }
 };
 
 clearbtn.addEventListener("click", clear);
@@ -103,21 +121,28 @@ domdecrypt.transfer.addEventListener("click", transfer);
 
 const alginfo = e("alg-specific-info")
 
-if (algselect.value == 'AES-CTR') {
-  alginfo.innerHTML = `<h2>∗ ∗ ∗</h2><h2>Addendum</h2>A few notable things about AES-CTR and demonstrations thereof: (1) like one time-pads with no method of authentication/verification, it is possible to modify the plaintext by modifying the ciphertext without knowing the key. (2) if the same key+IV combination are used to encrypt more than one message, and the plaintext for one of the messages is known, it is possible to decrypt the others without knowing the key (this is the same as reusing a one-time pad). (3) if the key is known and part of the plaintext is known, it is possible to find the iv. this means if you forget or neglect to store the iv you can still decrypt so long as you know some of the message (16+ bytes; AES block size) and have the key and the ciphertext. this is not considered a vulnerability because the iv is not a secret and is often transmitted along with the ciphertext. keeping it a secret offers no additional security.
+let domfindiv;
+
+const updateAlginfo = () => {
+  if (algselect.value == 'AES-CTR') {
+    alginfo.innerHTML = `<h2>∗ ∗ ∗</h2><h2>Addendum</h2>A few notable things about AES-CTR and demonstrations thereof: (1) like one time-pads with no method of authentication/verification, it is possible to modify the plaintext by modifying the ciphertext without knowing the key. (2) if the same key+IV combination are used to encrypt more than one message, and the plaintext for one of the messages is known, it is possible to decrypt the others without knowing the key (this is the same as reusing a one-time pad). (3) if the key is known and part of the plaintext is known, it is possible to find the iv. this means if you forget or neglect to store the iv you can still decrypt so long as you know some of the message (16+ bytes; AES block size) and have the key and the ciphertext. this is not considered a vulnerability because the iv is not a secret and is often transmitted along with the ciphertext. keeping it a secret offers no additional security.
 <textarea id="in3" placeholder="Input (ciphertext, base64)"></textarea>
 <button id="transfer2">Transfer down the values from Encrypt output</button>
 <br/>
 <textarea id="in4" placeholder="Known partial plaintext (16+ characters)"></textarea>
 <button id="findivbtn">Find IV</button>
 <textarea id="out3" placeholder="IV (base64)"></textarea>`;
-  // field for ciphertext, field for 16 byte plaintext, key i will take from the top rather than have another input
+    // field for ciphertext, field for 16 byte plaintext, key i will take from the top rather than have another input
+    domfindiv = {
+      ciphertext: e('in3'), partialplaintext: e('in4'), btn: e('findivbtn'),
+      iv: e('out3'), transfer: e('transfer2'),
+    };
+    domfindiv.btn.addEventListener("click", findiv);
+    domfindiv.transfer.addEventListener("click", transfer2);
+  } else {
+    alginfo.innerHTML = "";
+  }
 }
-
-domfindiv = {
-  ciphertext: e('in3'), partialplaintext: e('in4'), btn: e('findivbtn'),
-  iv: e('out3'), transfer: e('transfer2'),
-};
 
 // * cbc with iv 0 for one block is equivalent to ecb
 // * webcrypto cbc decryption validates PKCS #7 padding, it must be
@@ -163,5 +188,6 @@ const transfer2 = () => {
   domfindiv.partialplaintext.value = domencrypt.in.value;
 }
 
-domfindiv.btn.addEventListener("click", findiv);
-domfindiv.transfer.addEventListener("click", transfer2);
+algselect.addEventListener("change", updateAlginfo);
+
+updateAlginfo();
