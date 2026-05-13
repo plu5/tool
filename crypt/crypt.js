@@ -39,8 +39,6 @@ const transfer = () => {
 const encode = (text) => new TextEncoder().encode(text);
 const decode = (text) => new TextDecoder().decode(text);
 
-const genCounter = () => window.crypto.getRandomValues(new Uint8Array(16));
-
 const genKey_ = (alg) => window.crypto.subtle.generateKey(
   {name: alg, length: 256}, true, ["encrypt", "decrypt"]);
 
@@ -67,9 +65,9 @@ const getKey = async (alg) => {
   return key;
 };
 
-const arrayBufferToBase64 = (buffer) => btoa(
-  String.fromCharCode(...new Uint8Array(buffer)));
-const base64ToArrayBuffer = (base64) => Uint8Array.from(
+const uint8ArrayToBase64 = (array) => btoa(
+  String.fromCharCode(...new Uint8Array(array)));
+const base64ToUint8Array = (base64) => Uint8Array.from(
   atob(base64), c => c.charCodeAt(0));
 
 const getParams = (alg, iv) => {
@@ -85,10 +83,11 @@ const getParams = (alg, iv) => {
 
 const encrypt = async () => {
   const alg = algselect.value;
-  const iv = genCounter();
-  domencrypt.iv.value = arrayBufferToBase64(iv);
+  const iv = window.crypto.getRandomValues(
+    new Uint8Array(alg == "AES-GCM" ? 12 : 16));
+  domencrypt.iv.value = uint8ArrayToBase64(iv);
   try {
-    domencrypt.out.value = arrayBufferToBase64(
+    domencrypt.out.value = uint8ArrayToBase64(
       await window.crypto.subtle.encrypt(
         getParams(alg, iv), await getKey(alg),
         encode(domencrypt.in.value)));
@@ -97,14 +96,14 @@ const encrypt = async () => {
   }
 };
 
-const decrypt = async () => {
+const decrypt = async (e, dom=domdecrypt) => {
   const alg = algselect.value;
-  const iv = base64ToArrayBuffer(domdecrypt.iv.value);
+  const iv = base64ToUint8Array(dom.iv.value);
   try {
-    domdecrypt.out.value = decode(
+    dom.out.value = decode(
       await window.crypto.subtle.decrypt(
         getParams(alg, iv), await getKey(alg),
-        base64ToArrayBuffer(domdecrypt.in.value)));
+        base64ToUint8Array(dom.in.value)));
   } catch (e) {
     domerr.textContent = `Unable to decrypt. ${e}`;
   }
@@ -139,6 +138,26 @@ const updateAlginfo = () => {
     };
     domfindiv.btn.addEventListener("click", findiv);
     domfindiv.transfer.addEventListener("click", transfer2);
+  } else if (algselect.value == 'AES-GCM') {
+    alginfo.innerHTML = `<h2>∗ ∗ ∗</h2>
+<h2>Decryptor bypassing authentication</h2>
+<p>AES-GCM encrypted data's last 16 bytes are a tag for authentication, and it will refuse to decrypt if the data was changed in any way; it is sufficient for a single bit to flip, which can happen non-maliciously, for example from bitrot. Since AES-GCM is pretty much the same as CTR other than the tag, we can decrypt the same data with AES-CTR by snipping off the tag and using the same counter.</p>
+<textarea id="in3" placeholder="Input (cyphertext, base64)"></textarea>
+<button id="transfer3">Transfer down the values from Encrypt output</button>
+<br/>
+<textarea id="iv3" placeholder="IV (base64)"></textarea>
+<button id="decrypt3">Decrypt</button>
+<textarea id="out3" placeholder="Output (cleartext)"></textarea>`;
+    const dom = {
+      btn: e("decrypt3"), in: e("in3"), out: e("out3"), iv: e("iv3"),
+      transfer: e("transfer3"),
+    };
+    const transfer3 = () => {
+      dom.in.value = domencrypt.out.value;
+      dom.iv.value = domencrypt.iv.value;
+    }
+    dom.btn.addEventListener("click", (e) => decryptGcmWithCtr(e, dom));
+    dom.transfer.addEventListener("click", transfer3);
   } else {
     alginfo.innerHTML = "";
   }
@@ -176,16 +195,35 @@ const decryptSingleAesBlock = async (key, block) => {
 const xor = (a, b) => a.map((v, i) => v ^ b[i]);
 
 const findiv = async () => {
-  const a = base64ToArrayBuffer(domfindiv.ciphertext.value).slice(0, 16);
+  const a = base64ToUint8Array(domfindiv.ciphertext.value).slice(0, 16);
   const b = encode(domfindiv.partialplaintext.value).slice(0, 16);
   const keystream = xor(a, b);
   const r = await decryptSingleAesBlock(await getKey("AES-CBC"), keystream);
-  domfindiv.iv.value = arrayBufferToBase64(r);
+  domfindiv.iv.value = uint8ArrayToBase64(r);
 }
 
 const transfer2 = () => {
   domfindiv.ciphertext.value = domencrypt.out.value;
   domfindiv.partialplaintext.value = domencrypt.in.value;
+}
+
+const decryptGcmWithCtr = async (e, dom) => {
+  const key = await getKey("AES-CTR");
+  // The IV must be 12 bytes or the result will be gibberish,
+  // because otherwise AES-GCM passes it through GHASH to produce 12 bytes.
+  // We could get some kind of GHASH implementation here to produce the same IV
+  // in that case, but currently we don't so it will only work if the IV is
+  // 12 bytes.
+  const iv = base64ToUint8Array(dom.iv.value);
+  const data = base64ToUint8Array(dom.in.value);
+  const ciphertext = data.slice(0, data.length - 16);
+  // Match initial counter conditions
+  const counter = new Uint8Array(16);
+  counter.set(iv, 0);  // Place the IV (12 bytes) at the start
+  counter[15] = 2;     // The last 4 bytes are the counter which we start at 2
+  const decrypted = await crypto.subtle.decrypt(
+    {name: "AES-CTR", counter, length: 64}, key, ciphertext);
+  dom.out.value = decode(decrypted);
 }
 
 algselect.addEventListener("change", updateAlginfo);
