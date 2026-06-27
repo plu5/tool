@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<head>
+  <link rel="stylesheet" href="jwe.css">
+</head>
+<body>
+  <select id="alg-select">
+    <option>dir</option>
+    <option>A256KW</option>
+    <option>A256GCMKW</option>
+    <option>A192KW</option>
+    <option>A192GCMKW</option>
+    <option>A128KW</option>
+    <option>A128GCMKW</option>
+    <option>PBES2-HS512+A256KW</option>
+    <option>PBES2-HS384+A192KW</option>
+    <option>PBES2-HS256+A128KW</option>
+  </select>
+  <select id="enc-select">
+    <option>A256GCM</option>
+    <option>A192GCM</option>
+    <option>A128GCM</option>
+    <option>A256CBC-HS512</option>
+    <option>A192CBC-HS384</option>
+    <option>A128CBC-HS256</option>
+  </select>
+  <pre id="err"></pre>
+  <button id="clear">Clear</button>
+  <textarea
+    id="key"
+    placeholder="Provide your own key or leave blank to generate one.">
+  </textarea>
+  <br/>
+  <hr/>
+  <textarea id="in" placeholder="Input (cleartext)"></textarea>
+  <button id="encrypt">Encrypt</button>
+  <textarea id="out" placeholder="Output (JWE compact)"></textarea>
+  <br/>
+  <hr/>
+  <button id="transfer">Transfer down the values from Encrypt output</button>
+  <br/>
+  <textarea id="in2" placeholder="Input (JWE compact)"></textarea>
+  <button id="decrypt">Decrypt</button>
+  <textarea id="out2" placeholder="Output (cleartext)"></textarea>
+  <div id="alg-specific-info"></div>
+  <script src="jwe.js"></script>
+</body>
+</html>
